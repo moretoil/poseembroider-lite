@@ -1,5 +1,7 @@
 # PoseEmbroider-Lite
 
+**English** | [简体中文](README.zh-CN.md)
+
 **A torch-free, ~300 MB deployment of [PoseEmbroider](https://github.com/naver/poseembroider) (ECCV 2024) for image → SMPL-X human mesh recovery.**
 
 Takes a photo, predicts SMPL-X pose & shape, outputs a textured-less mesh (`OBJ`) you can open in Blender — on CPU, in ~0.2 s per image, without installing PyTorch/CUDA.
