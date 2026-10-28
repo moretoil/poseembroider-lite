@@ -81,10 +81,8 @@ python webui.py
 | fp32 ONNX | **0.000°**（逐位一致） | 0.0000 | 0 mm |
 | fp16 ONNX | 0.122°（最大 0.60°） | 0.0030 | — |
 | NumPy 版 SMPL-X LBS | — | — | **3e-7**（float32 精度极限） |
-| int8 动态量化 | 19.3° ✗ | 0.71 ✗ | 不可用 |
-| int8 静态量化（QDQ） | 40.1° ✗ | 1.41 ✗ | 不可用 |
 
-本模型**对 int8 量化过于敏感**（ViT + 对比学习表征），fp16 是最优折中。数据可用 `validate/compare_final.py` 复现。
+数据可用 `validate/compare_final.py` 复现。
 
 ## 速度
 
@@ -110,14 +108,12 @@ python webui.py
 │   ├── lite_encoders.py        # 第一刀：跳过未使用的 text/pose 编码器
 │   ├── export_params_onnx.py   # 第二刀：torch -> ONNX 导出
 │   ├── export_fp16.py          # fp16 转换
-│   ├── quantize_static_qdq.py  # int8 实验（精度不达标，仅存档）
 │   ├── pack_smplx.py           # SMPL-X npz 瘦身：104 MB -> 28 MB
 │   └── dump_features.py        # 导出 torch 基准输出用于对齐
 ├── validate/               # 数值对齐与性能基准
 │   ├── compare_final.py        # lite vs 原版 torch
 │   ├── validate_lbs.py         # NumPy LBS vs smplx(torch)
-│   ├── final_bench.py          # 延迟基准
-│   └── test_orient.py          # 全局朝向约定验证
+│   └── final_bench.py          # 延迟基准
 └── docs/images/            # README 配图
 ```
 
@@ -129,19 +125,9 @@ python webui.py
            -> + 模态编码 -> intermodality token
            -> embroider  transformer 核心
            -> 姿势头(22x3x3 旋转矩阵) + 体型头(10 个 betas)
-  -> 旋转矩阵转旋转向量（NumPy）   [全局朝向修正：Rx(-90°)，见下]
+  -> 旋转矩阵转旋转向量（NumPy）   [全局朝向修正为 Y-up：Rx(-90°)]
   -> NumPy SMPL-X LBS（55 关节，平手均值姿态） -> 10475 个顶点
 ```
-
-### 踩过的坑（都值得知道）
-
-1. **ONNX 导出撞上 Transformer 融合算子** —— PyTorch 会把 `TransformerEncoderLayer` 融合成 `aten::_transformer_encoder_layer_fwd`，ONNX 无法导出。导出前必须调用 `torch.backends.mha.set_fastpath_enabled(False)`。
-2. **int8 量化不可行** —— 动态 int8 在随机噪声输入上误差只有 0.8°，看起来很美；换成真实图片立刻恶化到 19–40°。**量化一定要用真实数据验证**。
-3. **全局朝向约定** —— 模型输出的 `global_orient` 位于 BEDLAM 的相机坐标系（Y 轴向下）。需对根关节左乘 `Rx(-90°)` 转到标准 Y-up / 面向 +Z 坐标系；否则人体网格会"躺平"（俯视图反而像正视图）。
-4. **SMPL-X LBS 的两个细节**（`numpy_lbs_fast.py`）
-   - `flat_hand_mean=True` 时姿态均值**全为零**（不是 `hands_mean`）；
-   - `smplx.lbs.batch_rigid_transform` 的齐次坐标用 `F.pad` 默认补 **0**（不是 1），所以刚体变换修正是 `t - R·J`，而不是 `t - (R·J + t)`。
-5. **`item['poses']` 必须存在** —— `HPSEstimator.forward` 即使只做图像推理也会读取它（仅用于获取 device），塞个占位张量即可。
 
 ## 重新导出 ONNX 模型
 

@@ -81,10 +81,8 @@ Measured against the original PoseEmbroider torch pipeline on the same image:
 | fp32 ONNX | **0.000°** (bit-identical) | 0.0000 | 0 mm |
 | fp16 ONNX | 0.122° (max 0.60°) | 0.0030 | — |
 | NumPy SMPL-X LBS | — | — | **3e-7** (float32 limit) |
-| int8 dynamic | 19.3° ✗ | 0.71 ✗ | unusable |
-| int8 static (QDQ) | 40.1° ✗ | 1.41 ✗ | unusable |
 
-The model is **too quantization-sensitive for int8** (ViT + contrastive representation); fp16 is the sweet spot. Numbers reproduce with `validate/compare_final.py`.
+Numbers reproduce with `validate/compare_final.py`.
 
 ## Speed
 
@@ -110,14 +108,12 @@ On a typical desktop CPU: ~157 ms (fp32) + 5 ms LBS. Set `OMP_NUM_THREADS=4` whe
 │   ├── lite_encoders.py        # stage 1: skip unused text/pose encoders
 │   ├── export_params_onnx.py   # stage 2: torch -> ONNX export
 │   ├── export_fp16.py          # fp16 conversion (onnxruntime transformer tool)
-│   ├── quantize_static_qdq.py  # int8 experiments (accuracy not acceptable)
 │   ├── pack_smplx.py           # SMPL-X npz slimming: 104 MB -> 28 MB
 │   └── dump_features.py        # dump torch reference outputs for comparison
 ├── validate/               # numerical alignment & benchmarking
 │   ├── compare_final.py        # lite vs original torch pipeline
 │   ├── validate_lbs.py         # NumPy LBS vs smplx (torch) LBS
-│   ├── final_bench.py          # latency benchmark
-│   └── test_orient.py          # global-orientation convention check
+│   └── final_bench.py          # latency benchmark
 └── docs/images/            # README figures
 ```
 
@@ -129,19 +125,9 @@ image (192x256, /255)
            -> + modality encoding -> intermodality token
            -> embroider transformer core
            -> pose head (22x3x3 rotmats) + shape head (10 betas)
-  -> rotmat -> rotvec (NumPy)  [global orient fixed: Rx(-90°), see below]
+  -> rotmat -> rotvec (NumPy)  [global orient fixed to Y-up: Rx(-90°)]
   -> NumPy SMPL-X LBS (55 joints, flat hand mean) -> 10 475 vertices
 ```
-
-### Gotchas worth knowing (all encountered the hard way)
-
-1. **ONNX export vs Transformer fast path** — PyTorch fuses `TransformerEncoderLayer` into `aten::_transformer_encoder_layer_fwd`, which ONNX cannot export. Call `torch.backends.mha.set_fastpath_enabled(False)` before exporting.
-2. **int8 quantization is not viable** — dynamic int8 looks fine on random noise inputs (0.8° error) but explodes on real images (19–40°). Always validate quantization on real data.
-3. **Global orientation convention** — the model emits `global_orient` in BEDLAM's camera frame (Y-down). Rotating the root by `Rx(-90°)` gives the standard Y-up / facing-+Z frame; without it the mesh lies flat ("top view looks like the front view").
-4. **SMPL-X LBS details** (`numpy_lbs_fast.py`)
-   - with `flat_hand_mean=True` the pose mean is **all zeros** (not `hands_mean`);
-   - `smplx.lbs.batch_rigid_transform` pads the homogeneous joint coordinate with **0** (`F.pad` default), so the rigid-transform correction is `t - R·J`, not `t - (R·J + t)`.
-5. **`item['poses']` is required** by `HPSEstimator.forward` even for image-only inference — it is only used to fetch the device.
 
 ## Re-exporting the ONNX models
 
