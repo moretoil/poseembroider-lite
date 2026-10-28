@@ -1,0 +1,31 @@
+# ---- models (hosted on HuggingFace: foxdream/poseembroider-lite) ----
+# The repository contains code only; download model artefacts from:
+#   https://huggingface.co/foxdream/poseembroider-lite/tree/main
+models/*.onnx
+models/*.npz
+models/*.pt
+models/*.pth
+
+# ---- runtime outputs ----
+webui_out/
+test_out/
+smoke_out/
+out/
+*.obj
+
+# ---- python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# ---- logs / os ----
+*.log
+*.err
+.DS_Store
+Thumbs.db
+
+# ---- editor ----
+.vscode/
+.idea/

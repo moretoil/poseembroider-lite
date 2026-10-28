@@ -1,0 +1,19 @@
+# Core runtime (inference) -- CPU only, no PyTorch needed
+numpy>=1.24,<2
+onnxruntime>=1.19
+pillow>=10.0
+
+# Web UI
+flask>=3.0
+
+# Optional: tri-view rendering in the web UI (not needed for OBJ export)
+# pyrender>=0.1.45
+# trimesh>=4.0
+# PyOpenGL>=3.1.7
+
+# Optional: only for re-exporting the ONNX model from the original checkpoints
+# (see export/README section in the main README; requires the full original setup)
+# torch>=2.3
+# onnx>=1.16
+# onnxconverter-common
+# onnxruntime-transformers  (part of onnxruntime)
